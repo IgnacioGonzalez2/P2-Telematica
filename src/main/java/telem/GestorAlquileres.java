@@ -1,16 +1,6 @@
 package telem;
 
 import java.time.LocalDate;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
-import java.io.IOException;
-import java.nio.file.Paths;
-
-import org.json.JSONObject;
-import org.json.JSONArray;
-
-
 
 public class GestorAlquileres {
     
@@ -53,6 +43,11 @@ public class GestorAlquileres {
         vehiculos[7] = new Motocicleta("MEA2026", Categoria.ESPECIAL, 2026, 1000);
         vehiculos[8] = new VehiculoIndustrial("CEA2025", Categoria.ESPECIAL, 2025, 4400, 5);
 
+        for (Vehiculo vehiculo : vehiculos) {
+            if (vehiculo != null) {
+                vehiculo.setDisponible(true);
+            }
+        }
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -83,14 +78,32 @@ public class GestorAlquileres {
      * @param categoria
      * @return lista de vehículos del tipo y categoría especificados
      */
+    
     public Vehiculo[] obtenerVehiculos(String tipo, Categoria categoria) {
 
-        System.out.println("GestorAlquileres: obtenerVehiculos(tipo, categoria): método no implementado");
+        Vehiculo[] filtrados = new Vehiculo[vehiculos.length];
+        int contador = 0;
 
-        // Para hacer.
+        for (Vehiculo vehiculo : vehiculos) {
 
-        return null;
+            if (vehiculo != null
+                    && vehiculo.getTipo().equals(tipo)
+                    && (categoria == null
+                        || vehiculo.getCategoria() == categoria)
+                    && vehiculo.isDisponible()) {
+
+                filtrados[contador] = vehiculo;
+                contador++;
+            }
+        }
+
+        Vehiculo[] resultado = new Vehiculo[contador];
+
+        System.arraycopy(filtrados, 0, resultado, 0, contador);
+
+        return resultado;
     }
+
 
     /////////////////////////////////////////////////////////////////////////////////////
     // MÉTODOS PARA GESTIONAR ALQUILERES
@@ -116,12 +129,37 @@ public class GestorAlquileres {
         return alquileres; 
     }
 
+    
     public Alquiler[] obtenerAlquileres(Cliente cliente) {
 
-        System.out.println("GestorAlquileres: obtenerAlquileres(cliente): método no implementado");
+        if (cliente == null) {
+            return new Alquiler[0];
+        }
 
-        return null;
+        Alquiler[] encontrados = new Alquiler[contadorAlquileres];
+        int contador = 0;
+
+        for (int i = 0; i < contadorAlquileres; i++) {
+
+            Alquiler alquiler = alquileres[i];
+
+            if (alquiler != null
+                    && alquiler.getCliente() != null
+                    && alquiler.getCliente().getDni().equals(
+                        cliente.getDni())) {
+
+                encontrados[contador] = alquiler;
+                contador++;
+            }
+        }
+
+        Alquiler[] resultado = new Alquiler[contador];
+
+        System.arraycopy(encontrados, 0, resultado, 0, contador);
+
+        return resultado;
     }
+
 
 
     /**
@@ -132,12 +170,80 @@ public class GestorAlquileres {
      */
     private boolean esClienteFrecuente(Cliente cliente, int umbral) {
 
-        System.out.println("GestorAlquileres: esClienteFrecuente(cliente, umbral): método no implementado");
- 
-        // Para hacer.
-        
-        return false; 
+        Alquiler[] historial = obtenerAlquileres(cliente);
+
+        return historial.length > umbral;
     }
+
+
+    public void devolverVehiculo(Cliente cliente) {
+
+        if (cliente == null) {
+            System.out.println("Cliente no válido.");
+            return;
+        }
+
+        Alquiler[] historial = obtenerAlquileres(cliente);
+
+        // Buscar alquileres cuyos vehículos siguen ocupados
+        int pendientes = 0;
+
+        for (Alquiler alquiler : historial) {
+            if (alquiler != null
+                    && !alquiler.getVehiculo().isDisponible()) {
+                pendientes++;
+            }
+        }
+
+        if (pendientes == 0) {
+            System.out.println(
+                "No tiene vehículos pendientes de devolución."
+            );
+            return;
+        }
+
+        Alquiler[] activos = new Alquiler[pendientes];
+        int contador = 0;
+
+        System.out.println("Vehículos pendientes de devolución:");
+
+        for (Alquiler alquiler : historial) {
+
+            if (alquiler != null
+                    && !alquiler.getVehiculo().isDisponible()) {
+
+                activos[contador] = alquiler;
+
+                System.out.println(
+                    contador + " - Matrícula: "
+                    + alquiler.getVehiculo().getMatricula()
+                );
+
+                contador++;
+            }
+        }
+
+        System.out.println(
+            "Introduzca el número del vehículo a devolver:"
+        );
+
+        int opcion = KeyBoard.readInt();
+
+        if (opcion < 0 || opcion >= activos.length) {
+            System.out.println("Selección no válida.");
+            return;
+        }
+
+        Vehiculo vehiculo = activos[opcion].getVehiculo();
+
+        vehiculo.setDisponible(true);
+
+        System.out.println(
+            "Vehículo " + vehiculo.getMatricula()
+            + " devuelto correctamente."
+        );
+    }
+
 
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -172,90 +278,142 @@ public class GestorAlquileres {
                 System.out.println("(1) seleccionar coche para alquilar");
                 System.out.println("(2) entregar un coche alquilado");
                 System.out.println("(3) listar su histórico de alquileres");
-                System.out.println("(4) guardar datos en fichero JSON");
-                System.out.println("(5) cargar datos desde fichero JSON");
 
                 int opcion = KeyBoard.readInt();
                 System.out.println("opción escogida: " + opcion);
 
                 switch (opcion) {
-                    case 1:
-                        Vehiculo v = seleccionarVehiculo(cliente);
-                        if (v.isDisponible()){
-                            // para simplificar la IU se supone que el alquiler comienza "ahora"
-                            // y el usuario especifica duración en días.
-                            System.out.println("¿cuántos días desea alquilar el vehículo?");
-                            int dias = KeyBoard.readInt();
-                            LocalDate inicio = LocalDate.now();
-                            LocalDate fin = inicio.plusDays(dias);
-
-                            // Creamos y registramos el alquiler
-                            Alquiler q = new Alquiler(v, cliente, inicio, fin);
-                            this.agregarAlquiler(q);
-
-                            // Calculamos precio.
-                            // Aquí habría que determinar la política de precios aplicable según el tipo de cliente y la fecha.
-                            // Para simplificar, se aplicará la política de cliente frecuente si el cliente tiene más de 3 alquileres previos, 
-                            // y la política normal en caso contrario.
-
-                            //Comprobamos si el cliente es usuario frecuente para aplicarle
-                            // la tarifa que le corresponde.
-                            boolean usuarioFrecuente = this.esClienteFrecuente(cliente, 3);
-
-                            if (usuarioFrecuente){
-
-                                // aplicamos tarifa de cliente frecuente.
-                                System.out.println("Alquiler realizado. Tarifa Usuario frecuente.");
-                                // Para completar ...
-                            }
-                            else{
-                                // aplicamos tarifa normal.
-                                System.out.println("Alquiler realizado. Tarifa Normal.");
-
-                                // Para completar ...
-                            }
-                            
-                        }
-                        else{
-                            System.out.println("Debe seleccionar un vehículo disponible");
-                        }
-                        break;
-                    case 2: 
-                        System.out.println("opción no implementada");
-
-                        // Para completar ...
-
-                        break;              
-                    case 3:
-                        Alquiler alqs [] = obtenerAlquileres(cliente);
-                        for (Alquiler q: alqs){
-                            System.out.print(q);
-                        }
-                    default:
-                        break;
-
                     
-                    case 4:
-                        System.out.println("Nombre del fichero para guardar:");
-                        String ficheroGuardar = KeyBoard.readString();
+                case 1:
 
-                        try {
-                             guardarDatos(ficheroGuardar);
-                             System.out.println("Datos guardados correctamente.");
-                        } catch (IOException | RuntimeException e) {
-                            System.out.println("Error al guardar: " + e.getMessage());
-                        }
+                    Vehiculo v = seleccionarVehiculo(cliente);
+
+                    if (v == null) {
+                        System.out.println("No se ha seleccionado un vehículo.");
                         break;
+                    }
 
-                    case 5:
-                        System.out.println("Nombre del fichero para cargar:");
-                        String ficheroCargar = KeyBoard.readString();
+                    if (!v.isDisponible()) {
+                        System.out.println(
+                            "Debe seleccionar un vehículo disponible."
+                        );
+                        break;
+                    }
 
-                        try {
-                            cargarDatos(ficheroCargar);
-                            System.out.println("Datos cargados correctamente.");
-                        } catch (IOException | RuntimeException e) {
-                            System.out.println("Error al cargar: " + e.getMessage());
+                    System.out.println(
+                        "¿Cuántos días desea alquilar el vehículo?"
+                    );
+
+                    int dias = KeyBoard.readInt();
+
+                    if (dias <= 0) {
+                        System.out.println(
+                            "La duración debe ser mayor que cero."
+                        );
+                        break;
+                    }
+
+                    // Comprobar los alquileres anteriores
+                    boolean frecuente = esClienteFrecuente(cliente, 3);
+
+                    LocalDate inicio = LocalDate.now();
+                    LocalDate fin = inicio.plusDays(dias - 1);
+
+                    Alquiler nuevo = new Alquiler(
+                        v, cliente, inicio, fin
+                    );
+
+                    // Seleccionar la política de precios
+                    if (frecuente) {
+
+                        nuevo.setPoliticaPrecios(
+                            PoliticasDePrecios.ClienteFrecuente
+                        );
+
+                        System.out.println(
+                            "Tarifa aplicada: Cliente frecuente"
+                        );
+
+                    } else {
+
+                        nuevo.setPoliticaPrecios(
+                            PoliticasDePrecios.Normal
+                        );
+
+                        System.out.println(
+                            "Tarifa aplicada: Normal"
+                        );
+                    }
+
+                    int precio = nuevo.calcularPrecioAlquiler();
+
+                    // Registrar el alquiler
+                    if (contadorAlquileres >= alquileres.length) {
+                        System.out.println(
+                            "No se pueden registrar más alquileres."
+                        );
+                        break;
+                    }
+
+                    agregarAlquiler(nuevo);
+
+                    // Marcar el vehículo como no disponible
+                    v.setDisponible(false);
+
+                    System.out.println("Alquiler realizado correctamente.");
+                    System.out.println("Vehículo: " + v.getMatricula());
+                    System.out.println("Fecha inicio: " + inicio);
+                    System.out.println("Fecha fin: " + fin);
+                    System.out.println("Precio total: " + precio + " euros");
+
+                    break;
+                    case 2:
+
+                        devolverVehiculo(cliente);
+
+                    break;             
+                    case 3:
+
+                        Alquiler[] historial = obtenerAlquileres(cliente);
+
+                        if (historial.length == 0) {
+
+                            System.out.println(
+                                "No tiene alquileres registrados."
+                            );
+
+                        } else {
+
+                            System.out.println(
+                                "Historial de alquileres de "
+                                + cliente.getNombre()
+                            );
+
+                            for (int i = 0; i < historial.length; i++) {
+
+                                Alquiler alquiler = historial[i];
+
+                                System.out.println(
+                                    "Alquiler " + (i + 1)
+                                );
+
+                                System.out.println(
+                                    "Vehículo: "
+                                    + alquiler.getVehiculo().getMatricula()
+                                );
+
+                                System.out.println(
+                                    "Fecha inicio: "
+                                    + alquiler.getFechaInicio()
+                                );
+
+                                System.out.println(
+                                    "Fecha fin: "
+                                    + alquiler.getFechaFin()
+                                );
+
+                                System.out.println("------------------------");
+                            }
                         }
                         break;
                 }
@@ -296,343 +454,230 @@ public class GestorAlquileres {
         return cliente;
     }
 
-    public Vehiculo seleccionarVehiculo(Cliente cliente){
-        boolean seleccionado = false;
-        Vehiculo vehiculo = null;
+    public Vehiculo seleccionarVehiculo(Cliente cliente) {
 
-        while (!seleccionado) {
-        
-            System.out.println("Estimado Sr./Sra. " + cliente.getNombre());
-            System.out.println("Introduzca el número correspondiente al tipo de vehículo que desea alquilar:");
-            System.out.println("1. Turismo, 2. Motocicleta, 3. Vehículo Industrial: ");
+        System.out.println(
+            "Estimado Sr./Sra. " + cliente.getNombre()
+        );
 
-            int tipoVehiculo = KeyBoard.readInt();
-            String tipo = "";
-            Vehiculo [] elegibles = new Vehiculo[100];
+        System.out.println("Seleccione tipo de vehículo:");
+        System.out.println("1. Turismo");
+        System.out.println("2. Motocicleta");
+        System.out.println("3. Vehículo Industrial");
 
-            switch (tipoVehiculo) {
-                case 1:
-                    System.out.println("Ha seleccionado Turismo.");
-                    tipo = "Turismo";
-                    break;
-                case 2:
-                    System.out.println("Ha seleccionado Motocicleta.");
-                    tipo = "Motocicleta";
-                    break;
-                case 3:
-                    System.out.println("Ha seleccionado Vehículo Industrial.");
-                    tipo = "VehículoIndustrial";
-                    break;
-                default:
-                    System.out.println("Opción inválida. Por favor, seleccione un tipo de vehículo válido.");
-                    continue; // Volver a pedir la selección
-            }
+        int opcionTipo = KeyBoard.readInt();
 
-            System.out.println("Vehiculos disponibles");
+        String tipo;
 
-            System.out.println("Estimado Sr./Sra. " + cliente.getNombre() + "\n seleccione categoría.");
-            System.out.println("Introduzca el número correspondiente a la categoría que desea alquilar:");
-            System.out.println("1. Normal, 2. Superior, 3. Especial, 4.Cualquiera: ");
+        switch (opcionTipo) {
 
-            int categoriaVehiculo = KeyBoard.readInt();
+            case 1:
+                tipo = "Turismo";
+                break;
 
-            switch (categoriaVehiculo) {
-                case 1:
-                    System.out.println("Ha seleccionado Categoría Normal.");
-                    elegibles = obtenerVehiculos(tipo, Categoria.NORMAL);
-                    break;
-                case 2:
-                    System.out.println("Ha seleccionado Categoría Superior.");
-                    elegibles = obtenerVehiculos(tipo, Categoria.SUPERIOR);
-                    break;
-                case 3:
-                    System.out.println("Ha seleccionado Categoría Especial.");
-                    elegibles = obtenerVehiculos(tipo, Categoria.ESPECIAL);
-                    break;
-                default:
-                    elegibles = obtenerVehiculos(tipo, Categoria.ESPECIAL);
-                    break; // Volver a pedir la selección
-            }
+            case 2:
+                tipo = "Motocicleta";
+                break;
 
-            System.out.println("Coches elegibles");
+            case 3:
+                tipo = "VehiculoIndustrial";
+                break;
 
-            for(int i = 0; i < elegibles.length; i++){
-                System.out.println(i + " ---> " + elegibles[i]);
-            }
-
-            System.out.println("Introduzca número coche (sólo si está disponible)");
-            int seleccion = KeyBoard.readInt();
-            vehiculo = elegibles[seleccion];
-            seleccionado = true;
+            default:
+                System.out.println("Tipo no válido.");
+                return null;
         }
-        return vehiculo;
+
+        System.out.println("Seleccione categoría:");
+        System.out.println("1. Normal");
+        System.out.println("2. Superior");
+        System.out.println("3. Especial");
+        System.out.println("4. Cualquiera");
+
+        int opcionCategoria = KeyBoard.readInt();
+
+        Categoria categoria;
+
+        switch (opcionCategoria) {
+
+            case 1:
+                categoria = Categoria.NORMAL;
+                break;
+
+            case 2:
+                categoria = Categoria.SUPERIOR;
+                break;
+
+            case 3:
+                categoria = Categoria.ESPECIAL;
+                break;
+
+            case 4:
+                categoria = null;
+                break;
+
+            default:
+                System.out.println("Categoría no válida.");
+                return null;
+        }
+
+        Vehiculo[] elegibles =
+            obtenerVehiculos(tipo, categoria);
+
+        if (elegibles.length == 0) {
+
+            System.out.println(
+                "No hay vehículos disponibles de ese tipo."
+            );
+
+            return null;
+        }
+
+        System.out.println("Vehículos disponibles:");
+
+        for (int i = 0; i < elegibles.length; i++) {
+
+            System.out.println(
+                i + " - "
+                + elegibles[i].getMatricula()
+                + " - "
+                + elegibles[i].getCategoria()
+            );
+        }
+
+        System.out.println(
+            "Introduzca el número del vehículo:"
+        );
+
+        int seleccion = KeyBoard.readInt();
+
+        if (seleccion < 0 || seleccion >= elegibles.length) {
+
+            System.out.println("Selección no válida.");
+            return null;
+        }
+
+        return elegibles[seleccion];
     }
 
-    public void listarAlquileres (){
-        System.out.println("Listado de alquileres");
-        for (Alquiler alq: alquileres){
-            System.out.println(alq);
+
+    public void listarAlquileres() {
+
+        System.out.println("Listado de alquileres:");
+
+        for (int i = 0; i < contadorAlquileres; i++) {
+
+            if (alquileres[i] != null) {
+                System.out.println(alquileres[i]);
+            }
         }
-        System.out.println();
     }
 
-    public void listarVehiculos(){
-        System.out.println("Listado de vehículos");
-        for (Vehiculo veh: vehiculos){
-            System.out.println(veh);
+    public void listarVehiculos() {
+
+    System.out.println("Listado de vehículos:");
+
+    for (Vehiculo vehiculo : vehiculos) {
+
+        if (vehiculo != null) {
+            System.out.println(vehiculo);
         }
-        System.out.println();
+    }
     }
 
-    public static void probarPersistencia() {
 
-        try {
-            String fichero = "prueba_alquileres.json";
+    public static void probarEjercicio6() {
 
-            // Crear el gestor
-            GestorAlquileres gestor = new GestorAlquileres();
+        GestorAlquileres gestor = new GestorAlquileres();
 
-            // Crear un alquiler de prueba
-            Cliente cliente = gestor.clientes[0];
-            Vehiculo vehiculo = gestor.vehiculos[0];
+        Cliente cliente = gestor.clientes[0];
+
+        // Prueba 1: filtrar vehículos
+        Vehiculo[] turismos = gestor.obtenerVehiculos(
+            "Turismo", Categoria.NORMAL
+        );
+
+        if (turismos.length != 1) {
+            throw new AssertionError(
+                "Error al filtrar turismos normales"
+            );
+        }
+
+        // Prueba 2: cliente sin alquileres
+        if (gestor.obtenerAlquileres(cliente).length != 0) {
+            throw new AssertionError(
+                "El cliente debería tener cero alquileres"
+            );
+        }
+
+        // Prueba 3: cliente inicialmente no frecuente
+        if (gestor.esClienteFrecuente(cliente, 3)) {
+            throw new AssertionError(
+                "El cliente no debería ser frecuente"
+            );
+        }
+
+        // Prueba 4: registrar cuatro alquileres
+        for (int i = 0; i < 4; i++) {
 
             Alquiler alquiler = new Alquiler(
-                vehiculo,
+                gestor.vehiculos[i],
                 cliente,
                 LocalDate.of(2026, 11, 10),
-                LocalDate.of(2026, 11, 14)
+                LocalDate.of(2026, 11, 12)
             );
 
             gestor.agregarAlquiler(alquiler);
+        }
 
-            // Guardar los datos
-            gestor.guardarDatos(fichero);
-
-            // Crear otro gestor y cargar los datos
-            GestorAlquileres recuperado = new GestorAlquileres();
-            recuperado.cargarDatos(fichero);
-
-            // Comprobar clientes
-            if (!recuperado.clientes[0].getDni().equals(
-                    gestor.clientes[0].getDni())) {
-                throw new AssertionError(
-                    "Error al recuperar clientes"
-                );
-            }
-
-            // Comprobar vehículos
-            if (!recuperado.vehiculos[0].getMatricula().equals(
-                    gestor.vehiculos[0].getMatricula())) {
-                throw new AssertionError(
-                    "Error al recuperar vehículos"
-                );
-            }
-
-            // Comprobar alquileres
-            if (recuperado.contadorAlquileres != 1) {
-                throw new AssertionError(
-                    "Error al recuperar alquileres"
-                );
-            }
-
-            Alquiler alquilerRecuperado = recuperado.alquileres[0];
-
-            if (!alquilerRecuperado.getFechaInicio().equals(
-                    alquiler.getFechaInicio())) {
-                throw new AssertionError(
-                    "Error al recuperar las fechas"
-                );
-            }
-
-            // Comprobar que se conservan las referencias
-            if (alquilerRecuperado.getCliente() !=
-                    recuperado.clientes[0]) {
-                throw new AssertionError(
-                    "El cliente no comparte la misma referencia"
-                );
-            }
-
-            if (alquilerRecuperado.getVehiculo() !=
-                    recuperado.vehiculos[0]) {
-                throw new AssertionError(
-                    "El vehículo no comparte la misma referencia"
-                );
-            }
-
-            // Comprobar que cargar no duplica alquileres
-            recuperado.cargarDatos(fichero);
-
-            if (recuperado.contadorAlquileres != 1) {
-                throw new AssertionError(
-                    "La carga ha duplicado los alquileres"
-                );
-            }
-
-            // Eliminar el fichero temporal
-            Files.deleteIfExists(Paths.get(fichero));
-
-            System.out.println("Todas las pruebas superadas.");
-
-        } catch (IOException e) {
-            throw new RuntimeException(
-                "Error en las pruebas de persistencia", e
+        if (gestor.obtenerAlquileres(cliente).length != 4) {
+            throw new AssertionError(
+                "Error al obtener el historial"
             );
         }
-    }
 
+        // Prueba 5: ahora es cliente frecuente
+        if (!gestor.esClienteFrecuente(cliente, 3)) {
+            throw new AssertionError(
+                "El cliente debería ser frecuente"
+            );
+        }
+
+        // Prueba 6: comprobar disponibilidad
+        gestor.vehiculos[0].setDisponible(false);
+
+        Vehiculo[] disponibles = gestor.obtenerVehiculos(
+            "Turismo", Categoria.NORMAL
+        );
+
+        if (disponibles.length != 0) {
+            throw new AssertionError(
+                "El vehículo alquilado no debería aparecer"
+            );
+        }
+
+        gestor.vehiculos[0].setDisponible(true);
+
+        disponibles = gestor.obtenerVehiculos(
+            "Turismo", Categoria.NORMAL
+        );
+
+        if (disponibles.length != 1) {
+            throw new AssertionError(
+                "El vehículo devuelto debería aparecer"
+            );
+        }
+
+        System.out.println(
+            "Todas las pruebas del ejercicio 6 superadas."
+        );
+    }
 
     public static void main(String[] args) {
 
-        probarPersistencia();
+        probarEjercicio6();
 
         GestorAlquileres app = new GestorAlquileres();
         app.menuPrincipal();
-    }
-
-
-    public void guardarDatos(String nombreFichero) throws IOException {
-
-        JSONObject datos = new JSONObject();
-
-        JSONArray clientesJSON = new JSONArray();
-        JSONArray vehiculosJSON = new JSONArray();
-        JSONArray alquileresJSON = new JSONArray();
-
-        // Guardar clientes
-        for (Cliente cliente : clientes) {
-            if (cliente != null) {
-                clientesJSON.put(new JSONObject(cliente.toString()));
-            }
-        }
-
-        // Guardar vehículos
-        for (Vehiculo vehiculo : vehiculos) {
-            if (vehiculo != null) {
-                vehiculosJSON.put(new JSONObject(vehiculo.toString()));
-            }
-        }
-
-        // Guardar alquileres
-        for (int i = 0; i < contadorAlquileres; i++) {
-            if (alquileres[i] != null) {
-                alquileresJSON.put(
-                    new JSONObject(alquileres[i].toString())
-                );
-            }
-    }
-
-        datos.put("clientes", clientesJSON);
-        datos.put("vehiculos", vehiculosJSON);
-        datos.put("alquileres", alquileresJSON);
-
-        Files.write(
-            Paths.get(nombreFichero),
-            datos.toString(4).getBytes(StandardCharsets.UTF_8)
-        );
-    }
-    
-
-    public void cargarDatos(String nombreFichero) throws IOException {
-
-        String contenido = new String(
-            Files.readAllBytes(Paths.get(nombreFichero)),
-            StandardCharsets.UTF_8
-        );
-
-        JSONObject datos = new JSONObject(contenido);
-
-        JSONArray clientesJSON = datos.getJSONArray("clientes");
-        JSONArray vehiculosJSON = datos.getJSONArray("vehiculos");
-        JSONArray alquileresJSON = datos.getJSONArray("alquileres");
-
-        // Comprobar que los datos caben en los arrays
-        if (clientesJSON.length() > clientes.length ||
-            vehiculosJSON.length() > vehiculos.length ||
-            alquileresJSON.length() > alquileres.length) {
-
-            throw new IllegalArgumentException(
-                "El fichero contiene más objetos de los permitidos"
-            );
-        }
-
-        // Crear arrays temporales
-        Cliente[] nuevosClientes = new Cliente[clientes.length];
-        Vehiculo[] nuevosVehiculos = new Vehiculo[vehiculos.length];
-        Alquiler[] nuevosAlquileres = new Alquiler[alquileres.length];
-
-        // Recuperar clientes
-        for (int i = 0; i < clientesJSON.length(); i++) {
-            String json = clientesJSON.getJSONObject(i).toString();
-
-            nuevosClientes[i] = FactoriaClientes.getCliente(json);
-        }
-
-        // Recuperar vehículos
-        for (int i = 0; i < vehiculosJSON.length(); i++) {
-            String json = vehiculosJSON.getJSONObject(i).toString();
-
-            nuevosVehiculos[i] = FactoriaVehiculos.getVehiculo(json);
-        }
-
-        // Recuperar alquileres
-        
-    // Recuperar alquileres
-    for (int i = 0; i < alquileresJSON.length(); i++) {
-
-        JSONObject jsonAlquiler = alquileresJSON.getJSONObject(i);
-
-        String dni = jsonAlquiler
-            .getJSONObject("cliente").getString("dni");
-
-        String matricula = jsonAlquiler
-            .getJSONObject("vehiculo").getString("matricula");
-
-        Cliente clienteAlquiler = null;
-        Vehiculo vehiculoAlquiler = null;
-
-        // Buscar el cliente original
-        for (Cliente c : nuevosClientes) {
-            if (c != null && c.getDni().equals(dni)) {
-                clienteAlquiler = c;
-                break;
-            }
-        }
-
-        // Buscar el vehículo original
-        for (Vehiculo v : nuevosVehiculos) {
-            if (v != null && v.getMatricula().equals(matricula)) {
-                vehiculoAlquiler = v;
-                break;
-            }
-        }
-
-        if (clienteAlquiler == null || vehiculoAlquiler == null) {
-            throw new IllegalArgumentException(
-                "Alquiler con cliente o vehículo inexistente"
-            );
-        }
-
-        LocalDate inicio = LocalDate.parse(
-            jsonAlquiler.getString("fechaInicio")
-        );
-
-        LocalDate fin = LocalDate.parse(
-            jsonAlquiler.getString("fechaFin")
-        );
-
-        nuevosAlquileres[i] = new Alquiler(
-            vehiculoAlquiler,
-            clienteAlquiler,
-            inicio,
-            fin
-        );
-    }
-
-
-        // Sustituir los datos actuales
-        this.clientes = nuevosClientes;
-        this.vehiculos = nuevosVehiculos;
-        this.alquileres = nuevosAlquileres;
-        this.contadorAlquileres = alquileresJSON.length();
     }
 }
