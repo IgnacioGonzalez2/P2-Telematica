@@ -110,6 +110,10 @@ public class Alquiler {
         return new JSONObject(this).toString();
     }
 
+    public void setPoliticaPrecios(PoliticasDePrecios politica) {
+        this.estrategiaPrecio = FactoriaPrecios.getEstrategia(politica);
+    }
+
     public static void main(String[] args) {
         Vehiculo vehiculo1 = new Turismo("ABC123",Categoria.NORMAL,2020,5,400.0);
         Cliente cliente1 = new Cliente("Juan Pérez", "123456789");

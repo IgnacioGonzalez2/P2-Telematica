@@ -1,4 +1,3 @@
-
 package telem;
 
 import org.json.JSONObject;
