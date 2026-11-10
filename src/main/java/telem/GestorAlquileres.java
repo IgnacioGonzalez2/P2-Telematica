@@ -1,6 +1,16 @@
 package telem;
 
 import java.time.LocalDate;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Paths;
+
+import org.json.JSONObject;
+import org.json.JSONArray;
+
+
 
 public class GestorAlquileres {
     
@@ -162,6 +172,8 @@ public class GestorAlquileres {
                 System.out.println("(1) seleccionar coche para alquilar");
                 System.out.println("(2) entregar un coche alquilado");
                 System.out.println("(3) listar su histórico de alquileres");
+                System.out.println("(4) guardar datos en fichero JSON");
+                System.out.println("(5) cargar datos desde fichero JSON");
 
                 int opcion = KeyBoard.readInt();
                 System.out.println("opción escogida: " + opcion);
@@ -220,6 +232,31 @@ public class GestorAlquileres {
                             System.out.print(q);
                         }
                     default:
+                        break;
+
+                    
+                    case 4:
+                        System.out.println("Nombre del fichero para guardar:");
+                        String ficheroGuardar = KeyBoard.readString();
+
+                        try {
+                             guardarDatos(ficheroGuardar);
+                             System.out.println("Datos guardados correctamente.");
+                        } catch (IOException | RuntimeException e) {
+                            System.out.println("Error al guardar: " + e.getMessage());
+                        }
+                        break;
+
+                    case 5:
+                        System.out.println("Nombre del fichero para cargar:");
+                        String ficheroCargar = KeyBoard.readString();
+
+                        try {
+                            cargarDatos(ficheroCargar);
+                            System.out.println("Datos cargados correctamente.");
+                        } catch (IOException | RuntimeException e) {
+                            System.out.println("Error al cargar: " + e.getMessage());
+                        }
                         break;
                 }
             }
@@ -347,9 +384,255 @@ public class GestorAlquileres {
         System.out.println();
     }
 
+    public static void probarPersistencia() {
 
-    public static void main(String [] args){
+        try {
+            String fichero = "prueba_alquileres.json";
+
+            // Crear el gestor
+            GestorAlquileres gestor = new GestorAlquileres();
+
+            // Crear un alquiler de prueba
+            Cliente cliente = gestor.clientes[0];
+            Vehiculo vehiculo = gestor.vehiculos[0];
+
+            Alquiler alquiler = new Alquiler(
+                vehiculo,
+                cliente,
+                LocalDate.of(2026, 11, 10),
+                LocalDate.of(2026, 11, 14)
+            );
+
+            gestor.agregarAlquiler(alquiler);
+
+            // Guardar los datos
+            gestor.guardarDatos(fichero);
+
+            // Crear otro gestor y cargar los datos
+            GestorAlquileres recuperado = new GestorAlquileres();
+            recuperado.cargarDatos(fichero);
+
+            // Comprobar clientes
+            if (!recuperado.clientes[0].getDni().equals(
+                    gestor.clientes[0].getDni())) {
+                throw new AssertionError(
+                    "Error al recuperar clientes"
+                );
+            }
+
+            // Comprobar vehículos
+            if (!recuperado.vehiculos[0].getMatricula().equals(
+                    gestor.vehiculos[0].getMatricula())) {
+                throw new AssertionError(
+                    "Error al recuperar vehículos"
+                );
+            }
+
+            // Comprobar alquileres
+            if (recuperado.contadorAlquileres != 1) {
+                throw new AssertionError(
+                    "Error al recuperar alquileres"
+                );
+            }
+
+            Alquiler alquilerRecuperado = recuperado.alquileres[0];
+
+            if (!alquilerRecuperado.getFechaInicio().equals(
+                    alquiler.getFechaInicio())) {
+                throw new AssertionError(
+                    "Error al recuperar las fechas"
+                );
+            }
+
+            // Comprobar que se conservan las referencias
+            if (alquilerRecuperado.getCliente() !=
+                    recuperado.clientes[0]) {
+                throw new AssertionError(
+                    "El cliente no comparte la misma referencia"
+                );
+            }
+
+            if (alquilerRecuperado.getVehiculo() !=
+                    recuperado.vehiculos[0]) {
+                throw new AssertionError(
+                    "El vehículo no comparte la misma referencia"
+                );
+            }
+
+            // Comprobar que cargar no duplica alquileres
+            recuperado.cargarDatos(fichero);
+
+            if (recuperado.contadorAlquileres != 1) {
+                throw new AssertionError(
+                    "La carga ha duplicado los alquileres"
+                );
+            }
+
+            // Eliminar el fichero temporal
+            Files.deleteIfExists(Paths.get(fichero));
+
+            System.out.println("Todas las pruebas superadas.");
+
+        } catch (IOException e) {
+            throw new RuntimeException(
+                "Error en las pruebas de persistencia", e
+            );
+        }
+    }
+
+
+    public static void main(String[] args) {
+
+        probarPersistencia();
+
         GestorAlquileres app = new GestorAlquileres();
         app.menuPrincipal();
+    }
+
+
+    public void guardarDatos(String nombreFichero) throws IOException {
+
+        JSONObject datos = new JSONObject();
+
+        JSONArray clientesJSON = new JSONArray();
+        JSONArray vehiculosJSON = new JSONArray();
+        JSONArray alquileresJSON = new JSONArray();
+
+        // Guardar clientes
+        for (Cliente cliente : clientes) {
+            if (cliente != null) {
+                clientesJSON.put(new JSONObject(cliente.toString()));
+            }
+        }
+
+        // Guardar vehículos
+        for (Vehiculo vehiculo : vehiculos) {
+            if (vehiculo != null) {
+                vehiculosJSON.put(new JSONObject(vehiculo.toString()));
+            }
+        }
+
+        // Guardar alquileres
+        for (int i = 0; i < contadorAlquileres; i++) {
+            if (alquileres[i] != null) {
+                alquileresJSON.put(
+                    new JSONObject(alquileres[i].toString())
+                );
+            }
+    }
+
+        datos.put("clientes", clientesJSON);
+        datos.put("vehiculos", vehiculosJSON);
+        datos.put("alquileres", alquileresJSON);
+
+        Files.write(
+            Paths.get(nombreFichero),
+            datos.toString(4).getBytes(StandardCharsets.UTF_8)
+        );
+    }
+    
+
+    public void cargarDatos(String nombreFichero) throws IOException {
+
+        String contenido = new String(
+            Files.readAllBytes(Paths.get(nombreFichero)),
+            StandardCharsets.UTF_8
+        );
+
+        JSONObject datos = new JSONObject(contenido);
+
+        JSONArray clientesJSON = datos.getJSONArray("clientes");
+        JSONArray vehiculosJSON = datos.getJSONArray("vehiculos");
+        JSONArray alquileresJSON = datos.getJSONArray("alquileres");
+
+        // Comprobar que los datos caben en los arrays
+        if (clientesJSON.length() > clientes.length ||
+            vehiculosJSON.length() > vehiculos.length ||
+            alquileresJSON.length() > alquileres.length) {
+
+            throw new IllegalArgumentException(
+                "El fichero contiene más objetos de los permitidos"
+            );
+        }
+
+        // Crear arrays temporales
+        Cliente[] nuevosClientes = new Cliente[clientes.length];
+        Vehiculo[] nuevosVehiculos = new Vehiculo[vehiculos.length];
+        Alquiler[] nuevosAlquileres = new Alquiler[alquileres.length];
+
+        // Recuperar clientes
+        for (int i = 0; i < clientesJSON.length(); i++) {
+            String json = clientesJSON.getJSONObject(i).toString();
+
+            nuevosClientes[i] = FactoriaClientes.getCliente(json);
+        }
+
+        // Recuperar vehículos
+        for (int i = 0; i < vehiculosJSON.length(); i++) {
+            String json = vehiculosJSON.getJSONObject(i).toString();
+
+            nuevosVehiculos[i] = FactoriaVehiculos.getVehiculo(json);
+        }
+
+        // Recuperar alquileres
+        
+    // Recuperar alquileres
+    for (int i = 0; i < alquileresJSON.length(); i++) {
+
+        JSONObject jsonAlquiler = alquileresJSON.getJSONObject(i);
+
+        String dni = jsonAlquiler
+            .getJSONObject("cliente").getString("dni");
+
+        String matricula = jsonAlquiler
+            .getJSONObject("vehiculo").getString("matricula");
+
+        Cliente clienteAlquiler = null;
+        Vehiculo vehiculoAlquiler = null;
+
+        // Buscar el cliente original
+        for (Cliente c : nuevosClientes) {
+            if (c != null && c.getDni().equals(dni)) {
+                clienteAlquiler = c;
+                break;
+            }
+        }
+
+        // Buscar el vehículo original
+        for (Vehiculo v : nuevosVehiculos) {
+            if (v != null && v.getMatricula().equals(matricula)) {
+                vehiculoAlquiler = v;
+                break;
+            }
+        }
+
+        if (clienteAlquiler == null || vehiculoAlquiler == null) {
+            throw new IllegalArgumentException(
+                "Alquiler con cliente o vehículo inexistente"
+            );
+        }
+
+        LocalDate inicio = LocalDate.parse(
+            jsonAlquiler.getString("fechaInicio")
+        );
+
+        LocalDate fin = LocalDate.parse(
+            jsonAlquiler.getString("fechaFin")
+        );
+
+        nuevosAlquileres[i] = new Alquiler(
+            vehiculoAlquiler,
+            clienteAlquiler,
+            inicio,
+            fin
+        );
+    }
+
+
+        // Sustituir los datos actuales
+        this.clientes = nuevosClientes;
+        this.vehiculos = nuevosVehiculos;
+        this.alquileres = nuevosAlquileres;
+        this.contadorAlquileres = alquileresJSON.length();
     }
 }
