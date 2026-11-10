@@ -21,6 +21,7 @@ public class Turismo extends Vehiculo {
         return capacidadMaletero;
     }
 
+    @Override
     public String getTipo(){
         return "Turismo";
     }
