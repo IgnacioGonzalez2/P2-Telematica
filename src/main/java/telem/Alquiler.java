@@ -1,7 +1,5 @@
 package telem;
 
-import java.util.Date;
-
 import org.json.JSONObject;
 
 import java.time.LocalDate;
@@ -18,6 +16,7 @@ public class Alquiler {
     private Cliente cliente;
     private LocalDate fechaInicio;
     private LocalDate fechaFin;
+    private EstrategiaPrecio estrategiaPrecio = new PrecioNormal();
 
     private static Alquiler[] alquileres = new Alquiler[1000];
 
@@ -62,8 +61,24 @@ public class Alquiler {
 
    public int calcularPrecioAlquiler(LocalDate fechaInicio, LocalDate fechaFin) {
         // +1 to include the start day
-        int dias = (int) ChronoUnit.DAYS.between(fechaInicio, fechaFin) + 1;
-        return dias * PRECIO_BASE;
+        int dias = fechaFin.getDayOfYear() - fechaInicio.getDayOfYear() + 1;
+        return new PrecioNormal().calcularPrecio(vehiculo, dias);
+    } 
+
+    public void setEstrategiaPrecio(EstrategiaPrecio estrategiaPrecio) {
+        if (estrategiaPrecio == null) {
+            throw new IllegalArgumentException(
+                "La estrategia de precio no puede ser null"
+            );
+     }
+
+        this.estrategiaPrecio = estrategiaPrecio;
+    }
+
+    public int calcularPrecioAlquiler() {
+        int dias = fechaFin.getDayOfYear() - fechaInicio.getDayOfYear() + 1;
+
+        return estrategiaPrecio.calcularPrecio(vehiculo, dias);
     } 
 
 
@@ -90,4 +105,5 @@ public class Alquiler {
         System.out.println(alquiler2.toString());
         System.out.println("-----------------------------------------------");
  } 
+  
 }
