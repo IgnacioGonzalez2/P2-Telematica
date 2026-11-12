@@ -1,6 +1,12 @@
 package telem;
 
 import java.time.LocalDate;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import org.json.JSONObject;
+import org.json.JSONArray;
 
 public class GestorAlquileres {
     
@@ -253,6 +259,117 @@ public class GestorAlquileres {
     // Aquí se integran ambas por simplicidad, pero en una aplicación real hay que separarlas.
 
 
+    public void guardarDatos(String nombreFichero) {
+        JSONObject datos = new JSONObject();
+        JSONArray jsonClientes = new JSONArray();
+        JSONArray jsonVehiculos = new JSONArray();
+        JSONArray jsonAlquileres = new JSONArray();
+
+        for (Cliente cliente : clientes) {
+            if (cliente != null) {
+                jsonClientes.put(new JSONObject(cliente.toString()));
+            }
+        }
+
+        for (Vehiculo vehiculo : vehiculos) {
+            if (vehiculo != null) {
+                jsonVehiculos.put(new JSONObject(vehiculo.toString()));
+            }
+        }
+
+        for (int i = 0; i < contadorAlquileres; i++) {
+            Alquiler alquiler = alquileres[i];
+            if (alquiler != null) {
+                JSONObject jsonAlquiler = new JSONObject();
+                jsonAlquiler.put("dni", alquiler.getCliente().getDni());
+                jsonAlquiler.put("matricula", alquiler.getVehiculo().getMatricula());
+                jsonAlquiler.put("fechaInicio", alquiler.getFechaInicio().toString());
+                jsonAlquiler.put("fechaFin", alquiler.getFechaFin().toString());
+                jsonAlquileres.put(jsonAlquiler);
+            }
+        }
+
+        datos.put("clientes", jsonClientes);
+        datos.put("vehiculos", jsonVehiculos);
+        datos.put("alquileres", jsonAlquileres);
+
+        try {
+            Files.write(Paths.get(nombreFichero),
+                datos.toString(4).getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            System.out.println("Error al guardar los datos: " + e.getMessage());
+        }
+    }
+
+    public void cargarDatos(String nombreFichero) {
+        try {
+            String contenido = new String(
+                Files.readAllBytes(Paths.get(nombreFichero)),
+                StandardCharsets.UTF_8);
+            JSONObject datos = new JSONObject(contenido);
+            JSONArray jsonClientes = datos.getJSONArray("clientes");
+            JSONArray jsonVehiculos = datos.getJSONArray("vehiculos");
+            JSONArray jsonAlquileres = datos.getJSONArray("alquileres");
+
+            if (jsonClientes.length() > clientes.length
+                    || jsonVehiculos.length() > vehiculos.length
+                    || jsonAlquileres.length() > alquileres.length) {
+                throw new IllegalArgumentException("Los datos superan la capacidad del gestor.");
+            }
+
+            Cliente[] nuevosClientes = new Cliente[clientes.length];
+            Vehiculo[] nuevosVehiculos = new Vehiculo[vehiculos.length];
+            Alquiler[] nuevosAlquileres = new Alquiler[alquileres.length];
+
+            for (int i = 0; i < jsonClientes.length(); i++) {
+                nuevosClientes[i] = FactoriaClientes.getCliente(
+                    jsonClientes.getJSONObject(i).toString());
+            }
+
+            for (int i = 0; i < jsonVehiculos.length(); i++) {
+                nuevosVehiculos[i] = FactoriaVehiculos.getVehiculo(
+                    jsonVehiculos.getJSONObject(i).toString());
+            }
+
+            for (int i = 0; i < jsonAlquileres.length(); i++) {
+                JSONObject jsonAlquiler = jsonAlquileres.getJSONObject(i);
+                String dni = jsonAlquiler.getString("dni");
+                String matricula = jsonAlquiler.getString("matricula");
+                Cliente cliente = null;
+                Vehiculo vehiculo = null;
+
+                for (Cliente c : nuevosClientes) {
+                    if (c != null && c.getDni().equals(dni)) {
+                        cliente = c;
+                        break;
+                    }
+                }
+
+                for (Vehiculo v : nuevosVehiculos) {
+                    if (v != null && v.getMatricula().equals(matricula)) {
+                        vehiculo = v;
+                        break;
+                    }
+                }
+
+                if (cliente == null || vehiculo == null) {
+                    throw new IllegalArgumentException("Alquiler con cliente o vehículo inexistente.");
+                }
+
+                nuevosAlquileres[i] = new Alquiler(vehiculo, cliente,
+                    LocalDate.parse(jsonAlquiler.getString("fechaInicio")),
+                    LocalDate.parse(jsonAlquiler.getString("fechaFin")));
+            }
+
+            clientes = nuevosClientes;
+            vehiculos = nuevosVehiculos;
+            alquileres = nuevosAlquileres;
+            contadorAlquileres = jsonAlquileres.length();
+        } catch (IOException | RuntimeException e) {
+            System.out.println("Error al cargar los datos: " + e.getMessage());
+        }
+    }
+
     public void menuPrincipal(){
         
         boolean salir = false;
@@ -278,6 +395,8 @@ public class GestorAlquileres {
                 System.out.println("(1) seleccionar coche para alquilar");
                 System.out.println("(2) entregar un coche alquilado");
                 System.out.println("(3) listar su histórico de alquileres");
+                System.out.println("(4) guardar datos");
+                System.out.println("(5) cargar datos");
 
                 int opcion = KeyBoard.readInt();
                 System.out.println("opción escogida: " + opcion);
@@ -415,6 +534,12 @@ public class GestorAlquileres {
                                 System.out.println("------------------------");
                             }
                         }
+                        break;
+                    case 4:
+                        guardarDatos("datos.json");
+                        break;
+                    case 5:
+                        cargarDatos("datos.json");
                         break;
                 }
             }
